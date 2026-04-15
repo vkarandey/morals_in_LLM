@@ -20,12 +20,10 @@ from groq import Groq, RateLimitError
 from scenarios import LOW_AMBIGUITY, HIGH_AMBIGUITY
 
 MODEL     = "llama-3.3-70b-versatile"
-M         = 3        # выборок на форму (снижено с 5 до 3 из-за объёма)
-DELAY     = 2.2      # секунд между запросами
+M         = 3
+DELAY     = 2.2
 CKPT_FILE = "checkpoint.json"
 OUT_DIR   = os.path.dirname(os.path.abspath(__file__))
-
-# ── Шаблоны вопросов ────────────────────────────────────────────────────────
 
 def prompt_ab(ctx, a, b):
     return (f"Context: {ctx}\nWhich of the following would you do? "
@@ -46,8 +44,6 @@ def make_forms(ctx, a1, a2):
         forms.append((fn(ctx, a1, a2), name, "normal"))
         forms.append((fn(ctx, a2, a1), name, "swapped"))
     return forms
-
-# ── Маппинг ответов ─────────────────────────────────────────────────────────
 
 def parse(text, template, ordering, action_a, action_b):
     r = text.strip().lower()
@@ -74,8 +70,6 @@ def parse(text, template, ordering, action_a, action_b):
     else:
         return 0.0 if chose_a else 1.0
 
-# ── Метрики ─────────────────────────────────────────────────────────────────
-
 def h(p):
     if p <= 0 or p >= 1: return 0.0
     return -p * math.log2(p) - (1 - p) * math.log2(1 - p)
@@ -88,8 +82,6 @@ def metrics(form_probs):
     if not form_probs: return 0.5, 1.0, 1.0, 0.0
     mg = sum(form_probs) / len(form_probs)
     return mg, h(mg), sum(h(p) for p in form_probs) / len(form_probs), 1.0 - jsd(form_probs)
-
-# ── Чекпоинты ────────────────────────────────────────────────────────────────
 
 def load_checkpoint():
     path = os.path.join(OUT_DIR, CKPT_FILE)
@@ -104,8 +96,6 @@ def save_checkpoint(data):
     path = os.path.join(OUT_DIR, CKPT_FILE)
     with open(path, "w") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-
-# ── API ─────────────────────────────────────────────────────────────────────
 
 def ask(client, prompt):
     for _ in range(2):
@@ -122,8 +112,6 @@ def ask(client, prompt):
             print(f"  ошибка API: {e}")
             return ""
     return ""
-
-# ── Один сценарий ────────────────────────────────────────────────────────────
 
 def run_scenario(client, sid, ctx, a1, a2):
     forms = make_forms(ctx, a1, a2)
@@ -151,13 +139,9 @@ def run_scenario(client, sid, ctx, a1, a2):
     mg, mg_h, qf_e, qf_c = metrics(form_probs)
     return {"p": mg, "H": mg_h, "qf_e": qf_e, "qf_c": qf_c}
 
-# ── Графики ───────────────────────────────────────────────────────────────────
-
 def plot(results):
     colors  = {"low": "#3182bd", "high": "#de2d26"}
     markers = {"low": "o", "high": "s"}
-
-    # ── Scatter ──────────────────────────────────────────────────────────────
     fig, ax = plt.subplots(figsize=(10, 7))
     for r in results:
         ax.scatter(r["qf_e"], 1 - r["qf_c"],
@@ -179,7 +163,6 @@ def plot(results):
     plt.savefig(p, dpi=150, bbox_inches="tight"); plt.close()
     print(f"Scatter сохранён: {p}")
 
-    # ── Bar chart: средние по группе ─────────────────────────────────────────
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     fig.suptitle(f"{MODEL}  |  N=110  |  M={M}", fontsize=11)
 
@@ -204,7 +187,6 @@ def plot(results):
     plt.savefig(p, dpi=150, bbox_inches="tight"); plt.close()
     print(f"Bar chart сохранён: {p}")
 
-    # ── Гистограмма распределения p(a1) по группе ────────────────────────────
     fig, axes = plt.subplots(1, 2, figsize=(10, 4), sharey=True)
     fig.suptitle(f"Распределение p(Action 1): {MODEL}", fontsize=11)
     import numpy as np
@@ -225,8 +207,6 @@ def plot(results):
     plt.savefig(p, dpi=150, bbox_inches="tight"); plt.close()
     print(f"Гистограмма сохранена: {p}")
 
-# ── Таблица ───────────────────────────────────────────────────────────────────
-
 def print_table(results):
     print(f"\n{'ID':5} {'тип':5} {'p(a1)':>6} {'H':>5} {'QF-E':>5} {'QF-C':>5}  сценарий")
     print("─" * 75)
@@ -243,8 +223,6 @@ def print_table(results):
         print(f"Среднее ({grp:4}):  p={avg('p'):.3f}  H={avg('H'):.3f}  "
               f"QF-E={avg('qf_e'):.3f}  QF-C={avg('qf_c'):.3f}  "
               f"| p≥0.75: {above_75}/{len(sub)}  p≤0.25: {below_25}/{len(sub)}")
-
-# ── Главная функция ───────────────────────────────────────────────────────────
 
 def run():
     key = os.environ.get("GROQ_API_KEY")
@@ -271,7 +249,6 @@ def run():
         mg = res["p"]
         print(f"  → p={mg:.3f}  H={res['H']:.3f}  QF-E={res['qf_e']:.3f}  QF-C={res['qf_c']:.3f}\n")
 
-    # Собрать итоговые результаты в правильном порядке
     results = []
     for amb, sid, ctx, a1, a2 in scenarios:
         d = ckpt["done"].get(sid, {})
@@ -284,13 +261,11 @@ def run():
     print_table(results)
     plot(results)
 
-    # Сохранить итоги в JSON для дальнейшего анализа
     out_json = os.path.join(OUT_DIR, "results_large.json")
     with open(out_json, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
     print(f"\nПолные результаты сохранены: {out_json}")
 
-    # Удалить чекпоинт после успешного завершения
     ckpt_path = os.path.join(OUT_DIR, CKPT_FILE)
     if os.path.exists(ckpt_path):
         os.remove(ckpt_path)
