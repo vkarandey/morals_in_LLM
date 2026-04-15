@@ -254,7 +254,7 @@ def run():
     ax2.legend(handles=[mpatches.Patch(color=colors[k], label=k) for k in colors], fontsize=9)
 
     plt.tight_layout()
-    out = "/Users/victoriakarandey/Downloads/code_nlp_article/results.png"
+    out = "/results.png"
     plt.savefig(out, dpi=150, bbox_inches="tight")
     print(f"\nГрафик сохранён: {out}")
 
